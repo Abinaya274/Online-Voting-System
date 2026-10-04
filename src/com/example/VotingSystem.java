@@ -21,18 +21,19 @@ public class VotingSystem {
 
     public void registerUser(String username, String password) {
         String cleanedUsername = username == null ? "" : username.trim();
+        String cleanedPassword = password == null ? "" : password.trim();
 
         if (cleanedUsername.isEmpty()) {
             throw new IllegalArgumentException("Username cannot be empty.");
         }
-        if (password == null || password.trim().isEmpty()) {
+        if (cleanedPassword.isEmpty()) {
             throw new IllegalArgumentException("Password cannot be empty.");
         }
         if (users.containsKey(cleanedUsername)) {
             throw new IllegalArgumentException("That username is already registered.");
         }
 
-        users.put(cleanedUsername, new User(cleanedUsername, password));
+        users.put(cleanedUsername, new User(cleanedUsername, cleanedPassword));
         hasVoted.put(cleanedUsername, false);
     }
 
@@ -41,8 +42,10 @@ public class VotingSystem {
             return false;
         }
 
-        User user = users.get(username.trim());
-        return user != null && user.hasPassword(password);
+        String cleanedUsername = username.trim();
+        String cleanedPassword = password.trim();
+        User user = users.get(cleanedUsername);
+        return user != null && user.hasPassword(cleanedPassword);
     }
 
     public List<Candidate> getCandidates() {
@@ -89,16 +92,18 @@ public class VotingSystem {
     }
 
     public List<Candidate> getWinners() {
-        int highestVotes = -1;
-        List<Candidate> winners = new ArrayList<>();
+        if (candidates.isEmpty()) {
+            return new ArrayList<>();
+        }
 
+        int highestVotes = Integer.MIN_VALUE;
         for (Candidate candidate : candidates.values()) {
-            int votes = candidateVotes.get(candidate.getId());
-            if (votes > highestVotes) {
-                highestVotes = votes;
-                winners.clear();
-                winners.add(candidate);
-            } else if (votes == highestVotes) {
+            highestVotes = Math.max(highestVotes, candidateVotes.getOrDefault(candidate.getId(), 0));
+        }
+
+        List<Candidate> winners = new ArrayList<>();
+        for (Candidate candidate : candidates.values()) {
+            if (candidateVotes.getOrDefault(candidate.getId(), 0) == highestVotes) {
                 winners.add(candidate);
             }
         }
@@ -106,26 +111,26 @@ public class VotingSystem {
     }
 
     public List<Candidate> getRunnersUp() {
-        int highestVotes = -1;
-        int runnerUpVotes = -1;
+        List<Candidate> winners = getWinners();
+        if (winners.size() == candidates.size()) {
+            return new ArrayList<>();
+        }
 
+        int runnerUpVotes = Integer.MIN_VALUE;
         for (Candidate candidate : candidates.values()) {
-            int votes = candidateVotes.get(candidate.getId());
-            if (votes > highestVotes) {
-                runnerUpVotes = highestVotes;
-                highestVotes = votes;
-            } else if (votes < highestVotes && votes > runnerUpVotes) {
-                runnerUpVotes = votes;
+            if (!winners.contains(candidate)) {
+                runnerUpVotes = Math.max(runnerUpVotes, candidateVotes.getOrDefault(candidate.getId(), 0));
             }
         }
 
         List<Candidate> runnersUp = new ArrayList<>();
-        if (runnerUpVotes == -1) {
+        if (runnerUpVotes == Integer.MIN_VALUE) {
             return runnersUp;
         }
 
         for (Candidate candidate : candidates.values()) {
-            if (candidateVotes.get(candidate.getId()) == runnerUpVotes) {
+            if (!winners.contains(candidate)
+                    && candidateVotes.getOrDefault(candidate.getId(), 0) == runnerUpVotes) {
                 runnersUp.add(candidate);
             }
         }
